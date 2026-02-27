@@ -487,12 +487,18 @@
         function applyEffects(actionOrEffects) {
             if (actionOrEffects && actionOrEffects.outcomes) {
                 const outcomes = actionOrEffects.outcomes;
-                const probSucesso = outcomes.sucesso ? outcomes.sucesso.prob : 1;
+                const probSucesso = outcomes.sucesso && typeof outcomes.sucesso.prob === "number" ? outcomes.sucesso.prob : 0.5;
+                const probFalha = outcomes.falha && typeof outcomes.falha.prob === "number" ? outcomes.falha.prob : (1 - probSucesso);
+                const total = Math.max(0.0001, probSucesso + probFalha);
+                const successThreshold = probSucesso / total;
+
                 const roll = Math.random();
-                const result = roll < probSucesso ? outcomes.sucesso : outcomes.falha;
-                const label = result === outcomes.sucesso ? "SUCESSO" : "FALHA";
+                const success = roll < successThreshold;
+                const result = success ? outcomes.sucesso : outcomes.falha;
+                const label = success ? "SUCESSO" : "FALHA";
+
                 aplicarEfeitosBase(result ? result.efeitos : {});
-                addLog(`[RNG ${label}] ${result && result.log ? result.log : "Resultado probabilístico processado."}`, result === outcomes.sucesso ? "good" : "bad");
+                addLog(`[RNG ${label}] ${result && result.log ? result.log : "Resultado probabilístico processado."}`, success ? "good" : "bad");
                 return;
             }
             aplicarEfeitosBase(actionOrEffects || {});
