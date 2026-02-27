@@ -1,493 +1,648 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tetris Neon</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M&A Dealmaker Simulator</title>
     <style>
         :root {
             color-scheme: dark;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            --bg: #070b1f;
+            --panel: rgba(14, 20, 48, 0.92);
+            --border: rgba(255, 255, 255, 0.14);
+            --text: #e8ebff;
+            --muted: #a8b0da;
+            --accent: #86d7ff;
+            --good: #63f0b6;
+            --warn: #ffc970;
+            --bad: #ff7b91;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; }
 
         body {
+            margin: 0;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at top, #1b1f4a, #0a0d1f 55%, #05060f 100%);
-            color: #f5f6ff;
-            padding: 24px;
+            background: radial-gradient(circle at top, #141c4e, var(--bg) 48%, #02040d 100%);
+            color: var(--text);
+            font-family: Inter, "Segoe UI", Roboto, sans-serif;
+            padding: 22px;
         }
 
-        .app {
+        .layout {
+            margin: 0 auto;
+            max-width: 1100px;
             display: grid;
-            grid-template-columns: minmax(260px, 320px) minmax(300px, 360px);
-            gap: 32px;
-            align-items: center;
-            max-width: 960px;
-            width: 100%;
+            grid-template-columns: 340px 1fr;
+            gap: 18px;
         }
 
         .panel {
-            background: rgba(11, 15, 40, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 24px 40px rgba(2, 4, 12, 0.7);
-            backdrop-filter: blur(12px);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(2, 5, 15, 0.5);
+            padding: 18px;
         }
 
-        .info h1 {
-            font-size: 2.2rem;
-            margin-bottom: 8px;
-            color: #f9b4ff;
-        }
-
-        .info p {
-            font-size: 0.95rem;
-            line-height: 1.5;
-            color: #d7d8f6;
-            margin-bottom: 18px;
-        }
+        h1 { margin: 0 0 8px; font-size: 1.6rem; }
+        h2 { margin: 0 0 8px; font-size: 1rem; color: #dce2ff; }
+        p { margin: 0 0 10px; color: var(--muted); line-height: 1.4; }
 
         .stats {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin: 14px 0;
         }
 
         .stat {
-            background: rgba(22, 26, 58, 0.85);
-            border-radius: 14px;
-            padding: 12px 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 10px;
+            background: rgba(9, 13, 34, 0.8);
         }
 
-        .stat span {
+        .stat .label {
             display: block;
-            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: #8d93d9;
+            letter-spacing: 0.08em;
+            font-size: 0.67rem;
+            color: #95a1d7;
             margin-bottom: 6px;
         }
 
-        .stat strong {
-            font-size: 1.3rem;
-            color: #ffffff;
+        .stat strong { font-size: 1.12rem; }
+
+        .meter {
+            margin-top: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
         }
 
-        .controls {
+        .meter span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, var(--bad), var(--warn), var(--good));
+        }
+
+        .phase {
+            margin-bottom: 8px;
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .choices {
             display: grid;
             gap: 10px;
-            font-size: 0.9rem;
-            color: #b8befb;
-        }
-
-        .controls li {
-            list-style: none;
-            padding: 8px 12px;
-            border-radius: 10px;
-            background: rgba(17, 20, 45, 0.75);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .game-panel {
-            display: grid;
-            gap: 16px;
-            align-content: start;
-        }
-
-        canvas {
-            width: 100%;
-            height: auto;
-            background: #05060f;
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: inset 0 0 30px rgba(120, 137, 255, 0.15),
-                0 16px 30px rgba(3, 6, 21, 0.6);
-        }
-
-        .buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
+            margin: 14px 0;
         }
 
         button {
-            flex: 1 1 120px;
-            border: none;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(21, 31, 71, 0.95);
+            color: var(--text);
             border-radius: 12px;
-            padding: 12px 16px;
-            font-weight: 600;
+            padding: 12px;
+            text-align: left;
             cursor: pointer;
-            color: #0b0e25;
-            background: linear-gradient(135deg, #f9b4ff, #9ee7ff);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: transform 0.15s ease, border-color 0.15s ease;
         }
 
-        button.secondary {
-            background: rgba(255, 255, 255, 0.12);
-            color: #f5f6ff;
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            border-color: rgba(134, 215, 255, 0.7);
         }
 
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(45, 90, 255, 0.3);
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .small {
+            font-size: 0.84rem;
+            color: #9ea9dd;
         }
 
-        .status {
-            font-size: 0.95rem;
-            color: #fcd0ff;
-            min-height: 24px;
+        .log {
+            margin-top: 12px;
+            max-height: 280px;
+            overflow: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(6, 10, 24, 0.7);
         }
 
-        @media (max-width: 860px) {
-            .app {
-                grid-template-columns: 1fr;
-            }
+        .log-entry {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 7px 0;
+            font-size: 0.88rem;
+        }
+
+        .log-entry:last-child { border-bottom: none; }
+        .good { color: var(--good); }
+        .warn { color: var(--warn); }
+        .bad { color: var(--bad); }
+
+        .footer-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }
+
+        .footer-actions button {
+            text-align: center;
+            flex: 1 1 140px;
+            background: linear-gradient(135deg, #7ec5ff, #8fffc6);
+            color: #021126;
+            font-weight: 700;
+        }
+
+        .footer-actions button.secondary {
+            background: rgba(255,255,255,0.12);
+            color: var(--text);
+        }
+
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <main class="app">
-        <section class="panel info">
-            <h1>Tetris Neon</h1>
-            <p>Empilhe as peças brilhantes, complete linhas para pontuar e tente manter o ritmo conforme a velocidade aumenta.</p>
+    <noscript>
+        <p style="max-width:1100px;margin:0 auto 12px;background:#2b1430;color:#ffd3dd;border:1px solid #ff7b91;padding:10px 12px;border-radius:10px;">Este jogo requer JavaScript activo para funcionar.</p>
+    </noscript>
+    <main class="layout">
+        <aside class="panel">
+            <h1>M&A Dealmaker</h1>
+            <p>Simulação interactiva de mandato de venda: do pitch ao closing, gerindo cliente, equipa e compradores.</p>
+
             <div class="stats">
                 <div class="stat">
-                    <span>Pontuação</span>
-                    <strong id="score">0</strong>
+                    <span class="label">Cliente</span>
+                    <strong id="cliente">70</strong>
+                    <div class="meter"><span id="meter-cliente"></span></div>
                 </div>
                 <div class="stat">
-                    <span>Nível</span>
-                    <strong id="level">1</strong>
+                    <span class="label">Equipa</span>
+                    <strong id="equipa">65</strong>
+                    <div class="meter"><span id="meter-equipa"></span></div>
                 </div>
                 <div class="stat">
-                    <span>Linhas</span>
-                    <strong id="lines">0</strong>
+                    <span class="label">Compradores</span>
+                    <strong id="compradores">55</strong>
+                    <div class="meter"><span id="meter-compradores"></span></div>
                 </div>
                 <div class="stat">
-                    <span>Próxima</span>
-                    <strong id="next">-</strong>
+                    <span class="label">Valor (Milhões de EUR)</span>
+                    <strong id="valor">55</strong>
+                </div>
+                <div class="stat">
+                    <span class="label">Prob. Closing</span>
+                    <strong id="fecho">35%</strong>
+                </div>
+                <div class="stat">
+                    <span class="label">Semana Atual</span>
+                    <strong id="semana">1</strong>
+                </div>
+                <div class="stat">
+                    <span class="label">Semanas Restantes</span>
+                    <strong id="restantes">33</strong>
+                </div>
+                <div class="stat">
+                    <span class="label">Pontos de Ação</span>
+                    <strong id="pa">3</strong>
                 </div>
             </div>
-            <ul class="controls">
-                <li>⬅️ ➡️ mover peça</li>
-                <li>⬆️ girar peça</li>
-                <li>⬇️ acelerar queda</li>
-                <li>Espaço: queda instantânea</li>
-                <li>P: pausar/retomar</li>
-            </ul>
-        </section>
 
-        <section class="game-panel">
-            <div class="panel">
-                <canvas id="tetris" width="300" height="600" aria-label="Tabuleiro do Tetris"></canvas>
+            <p class="small">Se qualquer relação cair abaixo de 20, perdes o mandato. Se chegares ao closing com valor > 65 e probabilidade > 70%, vitória premium.</p>
+            <div class="footer-actions">
+                <button id="restart">Novo Mandato</button>
+                <button id="next" class="secondary">Terminar Semana</button>
             </div>
-            <div class="buttons">
-                <button type="button" id="start">Iniciar</button>
-                <button type="button" id="pause" class="secondary">Pausar</button>
-                <button type="button" id="restart" class="secondary">Reiniciar</button>
-            </div>
-            <div class="status" id="status">Pressione iniciar para começar.</div>
+        </aside>
+
+        <section class="panel">
+            <div class="phase" id="phase"></div>
+            <h2 id="title"></h2>
+            <p id="description"></p>
+
+            <div class="choices" id="choices"></div>
+
+            <div class="log" id="log" aria-live="polite"></div>
         </section>
     </main>
 
     <script>
-        const canvas = document.getElementById("tetris");
-        const context = canvas.getContext("2d");
-        const scoreEl = document.getElementById("score");
-        const levelEl = document.getElementById("level");
-        const linesEl = document.getElementById("lines");
-        const nextEl = document.getElementById("next");
-        const statusEl = document.getElementById("status");
-        const startBtn = document.getElementById("start");
-        const pauseBtn = document.getElementById("pause");
-        const restartBtn = document.getElementById("restart");
-
-        const COLS = 10;
-        const ROWS = 20;
-        const BLOCK = 30;
-        const SHAPES = {
-            I: [[1, 1, 1, 1]],
-            J: [[1, 0, 0], [1, 1, 1]],
-            L: [[0, 0, 1], [1, 1, 1]],
-            O: [[1, 1], [1, 1]],
-            S: [[0, 1, 1], [1, 1, 0]],
-            T: [[0, 1, 0], [1, 1, 1]],
-            Z: [[1, 1, 0], [0, 1, 1]]
-        };
-        const COLORS = {
-            I: "#67f4ff",
-            J: "#8da2ff",
-            L: "#ffb463",
-            O: "#ffe66d",
-            S: "#6dffb4",
-            T: "#d08cff",
-            Z: "#ff6f7d"
-        };
-        const ORDER = Object.keys(SHAPES);
-
-        context.scale(1, 1);
-
-        let board = [];
-        let currentPiece = null;
-        let nextPiece = null;
-        let score = 0;
-        let lines = 0;
-        let level = 1;
-        let dropInterval = 900;
-        let lastDropTime = 0;
-        let animationId = null;
-        let paused = false;
-        let running = false;
-
-        const createMatrix = (width, height) =>
-            Array.from({ length: height }, () => Array(width).fill(0));
-
-        const resetBoard = () => {
-            board = createMatrix(COLS, ROWS);
-        };
-
-        const randomPiece = () => {
-            const type = ORDER[Math.floor(Math.random() * ORDER.length)];
-            return {
-                type,
-                shape: SHAPES[type],
-                x: Math.floor(COLS / 2) - 1,
-                y: 0
-            };
-        };
-
-        const rotate = (matrix) => matrix[0].map((_, i) => matrix.map(row => row[i]).reverse());
-
-        const collides = (piece, offsetX = 0, offsetY = 0, shapeOverride = null) => {
-            const shape = shapeOverride || piece.shape;
-            for (let y = 0; y < shape.length; y += 1) {
-                for (let x = 0; x < shape[y].length; x += 1) {
-                    if (!shape[y][x]) continue;
-                    const newX = piece.x + x + offsetX;
-                    const newY = piece.y + y + offsetY;
-                    if (newX < 0 || newX >= COLS || newY >= ROWS) {
-                        return true;
+        const phases = [
+            {
+                id: "pitch",
+                title: "Pitch inicial ao accionista",
+                description: "Semana de arranque: conquistar mandato e calibrar expectativas.",
+                actions: [
+                    {
+                        text: "Preparar pitchbook com tese de equity story",
+                        progress: 34,
+                        effects: { equipa: -2, valor: 1, fecho: 2 },
+                        log: "Pitchbook reforçado com narrativa de crescimento e benchmarks."
+                    },
+                    {
+                        text: "Reunião de alinhamento com cliente",
+                        progress: 0,
+                        effects: { cliente: 5, equipa: -1 },
+                        log: "Cliente mais alinhado, mas exigiu várias revisões."
+                    },
+                    {
+                        text: "Treino interno de Q&A com equipa",
+                        progress: 18,
+                        effects: { equipa: 3, compradores: 1 },
+                        log: "A equipa ganhou consistência e velocidade de resposta."
                     }
-                    if (newY >= 0 && board[newY][newX]) {
-                        return true;
+                ]
+            },
+            {
+                id: "teaser",
+                title: "Teaser + Information Memorandum",
+                description: "Construir o material de venda sem comprometer credibilidade.",
+                actions: [
+                    {
+                        text: "Trabalhar no modelo financeiro em EUR",
+                        progress: 30,
+                        effects: { equipa: -2, valor: 2, fecho: 1 },
+                        log: "Modelo em EUR refinado com sensibilidade por cenário."
+                    },
+                    {
+                        text: "Recolher dados operacionais com controladoria",
+                        progress: 22,
+                        effects: { equipa: -1, compradores: 2, fecho: 2 },
+                        log: "Data quality melhorou e reduziu risco de questionamento."
+                    },
+                    {
+                        text: "Workshop de storyline com cliente",
+                        progress: 0,
+                        effects: { cliente: 4, compradores: 1 },
+                        log: "Storyline ficou mais consistente com a visão do accionista."
                     }
-                }
+                ]
+            },
+            {
+                id: "buyers",
+                title: "Contacto com compradores",
+                description: "Gerar tensão competitiva e manter interesse qualificado.",
+                actions: [
+                    {
+                        text: "Outreach semanal a novos compradores",
+                        progress: 26,
+                        effects: { equipa: -2, compradores: 4, fecho: 1 },
+                        log: "Novos buyers entraram no funil e aumentaram competitividade."
+                    },
+                    {
+                        text: "Follow-up 1:1 com buyers prioritários",
+                        progress: 20,
+                        effects: { compradores: 3, cliente: 1 },
+                        log: "Relacionamento com bidders prioritários ficou mais sólido."
+                    },
+                    {
+                        text: "Comité interno de priorização",
+                        progress: 0,
+                        effects: { equipa: 3, cliente: -1 },
+                        log: "Equipa ganhou foco, mas o cliente pressionou por mais velocidade."
+                    }
+                ]
+            },
+            {
+                id: "offers",
+                title: "Propostas não vinculativas",
+                description: "Comparar EV, cash-at-close e termos de execução.",
+                actions: [
+                    {
+                        text: "Negociar preço com shortlist",
+                        progress: 28,
+                        effects: { valor: 3, compradores: -1, fecho: 1 },
+                        log: "Preço subiu, mas alguns bidders endureceram posição."
+                    },
+                    {
+                        text: "Negociar termos de certeza de fecho",
+                        progress: 24,
+                        effects: { fecho: 4, compradores: 1, valor: 1 },
+                        log: "Termos ficaram mais executáveis e reduziram risco de queda."
+                    },
+                    {
+                        text: "Alinhamento tático com cliente",
+                        progress: 0,
+                        effects: { cliente: 4, equipa: -1 },
+                        log: "Cliente aprovou critérios de decisão e governance da fase."
+                    }
+                ]
+            },
+            {
+                id: "dd",
+                title: "Due diligence",
+                description: "Responder ao data room sem perder qualidade e ritmo.",
+                actions: [
+                    {
+                        text: "Resposta a pedidos críticos do data room",
+                        progress: 26,
+                        effects: { equipa: -3, compradores: 4, fecho: 3 },
+                        log: "Pedidos críticos atendidos com boa aceitação dos compradores."
+                    },
+                    {
+                        text: "Memo semanal de riscos e mitigantes",
+                        progress: 18,
+                        effects: { cliente: 2, compradores: 2, fecho: 2 },
+                        log: "Risco percebido caiu com comunicação estruturada."
+                    },
+                    {
+                        text: "Reforço de equipa para QA documental",
+                        progress: 0,
+                        effects: { equipa: 4, valor: -1 },
+                        log: "Melhorou consistência documental, com custo em eficiência económica."
+                    }
+                ]
+            },
+            {
+                id: "spa",
+                title: "Negociação do SPA",
+                description: "Equilibrar preço, responsabilidade e executabilidade.",
+                actions: [
+                    {
+                        text: "Negociar cláusulas de responsabilidade",
+                        progress: 24,
+                        effects: { cliente: 3, compradores: -1, fecho: 2 },
+                        log: "Proteção contratual melhorada sem bloquear o processo."
+                    },
+                    {
+                        text: "Fechar pontos de MAC, escrow e earn-out",
+                        progress: 28,
+                        effects: { fecho: 4, valor: 1, equipa: -2 },
+                        log: "Term sheet jurídico avançou com concessões equilibradas."
+                    },
+                    {
+                        text: "Reunião de gestão de tensão entre partes",
+                        progress: 0,
+                        effects: { cliente: 2, compradores: 3, equipa: 1 },
+                        log: "Ambiente negocial ficou menos adversarial."
+                    }
+                ]
+            },
+            {
+                id: "closing",
+                title: "Closing e condições precedentes",
+                description: "Concluir waivers bancários, registos e transferência de fundos.",
+                actions: [
+                    {
+                        text: "Coordenação com bancos para waivers",
+                        progress: 34,
+                        effects: { fecho: 5, compradores: 1, equipa: -2 },
+                        log: "Waivers bancários evoluíram com menor risco de derrapagem."
+                    },
+                    {
+                        text: "Checklist notarial e documentação de registo",
+                        progress: 30,
+                        effects: { fecho: 4, cliente: 2, equipa: -1 },
+                        log: "Checklist legal avançou sem pendências críticas."
+                    },
+                    {
+                        text: "War room de alinhamento final",
+                        progress: 0,
+                        effects: { cliente: 3, compradores: 2, equipa: -1 },
+                        log: "Última milha coordenada com todos os stakeholders."
+                    }
+                ]
+            }
+        ];
+
+        const state = {
+            phaseIndex: 0,
+            cliente: 70,
+            equipa: 65,
+            compradores: 55,
+            valor: 55,
+            fecho: 35,
+            semanaAtual: 1,
+            semanasTotais: 34,
+            pontosAcao: 3,
+            progressoFase: 0,
+            semanasNaFase: 1,
+            ended: false
+        };
+
+        const refs = {
+            phase: document.getElementById("phase"),
+            title: document.getElementById("title"),
+            description: document.getElementById("description"),
+            choices: document.getElementById("choices"),
+            log: document.getElementById("log"),
+            restart: document.getElementById("restart"),
+            next: document.getElementById("next"),
+            cliente: document.getElementById("cliente"),
+            equipa: document.getElementById("equipa"),
+            compradores: document.getElementById("compradores"),
+            valor: document.getElementById("valor"),
+            fecho: document.getElementById("fecho"),
+            semana: document.getElementById("semana"),
+            restantes: document.getElementById("restantes"),
+            pa: document.getElementById("pa"),
+            mc: document.getElementById("meter-cliente"),
+            me: document.getElementById("meter-equipa"),
+            mb: document.getElementById("meter-compradores")
+        };
+
+        const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+        function calcularPontosAcao() {
+            if (state.equipa < 30) return 1;
+            if (state.equipa <= 60) return 2;
+            return 3;
+        }
+
+        function addLog(message, tone = "") {
+            const div = document.createElement("div");
+            div.className = `log-entry ${tone}`.trim();
+            div.textContent = message;
+            refs.log.insertBefore(div, refs.log.firstChild);
+        }
+
+        function updateStats() {
+            refs.cliente.textContent = state.cliente;
+            refs.equipa.textContent = state.equipa;
+            refs.compradores.textContent = state.compradores;
+            refs.valor.textContent = state.valor;
+            refs.fecho.textContent = `${state.fecho}%`;
+            refs.semana.textContent = state.semanaAtual;
+            refs.restantes.textContent = Math.max(0, state.semanasTotais - state.semanaAtual + 1);
+            refs.pa.textContent = state.pontosAcao;
+            refs.mc.style.width = `${state.cliente}%`;
+            refs.me.style.width = `${state.equipa}%`;
+            refs.mb.style.width = `${state.compradores}%`;
+        }
+
+        function applyEffects(effects) {
+            Object.keys(effects).forEach((key) => {
+                state[key] += effects[key];
+            });
+            state.cliente = clamp(state.cliente, 0, 100);
+            state.equipa = clamp(state.equipa, 0, 100);
+            state.compradores = clamp(state.compradores, 0, 100);
+            state.valor = clamp(state.valor, 20, 120);
+            state.fecho = clamp(state.fecho, 0, 100);
+            state.progressoFase = clamp(state.progressoFase, 0, 100);
+        }
+
+        function endGame(message, tone = "warn") {
+            state.ended = true;
+            refs.choices.innerHTML = "";
+            refs.title.textContent = "Mandato terminado";
+            refs.description.textContent = message;
+            addLog(message, tone);
+            updateStats();
+        }
+
+        function evaluateState() {
+            if (state.cliente < 20) {
+                endGame("O cliente perdeu confiança na tua liderança e terminou o mandato.", "bad");
+                return true;
+            }
+            if (state.equipa < 20) {
+                endGame("A tua equipa entrou em burnout e não conseguiu sustentar o processo.", "bad");
+                return true;
+            }
+            if (state.compradores < 20) {
+                endGame("Os compradores desistiram por falta de confiança no processo.", "bad");
+                return true;
+            }
+            if (state.semanaAtual > state.semanasTotais) {
+                endGame("Ficaste sem semanas disponíveis antes de concluir o processo.", "bad");
+                return true;
             }
             return false;
-        };
+        }
 
-        const merge = () => {
-            currentPiece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value) {
-                        const boardY = currentPiece.y + y;
-                        if (boardY >= 0) {
-                            board[boardY][currentPiece.x + x] = currentPiece.type;
-                        }
-                    }
-                });
-            });
-        };
-
-        const clearLines = () => {
-            let cleared = 0;
-            for (let y = ROWS - 1; y >= 0; y -= 1) {
-                if (board[y].every(cell => cell !== 0)) {
-                    board.splice(y, 1);
-                    board.unshift(Array(COLS).fill(0));
-                    cleared += 1;
-                    y += 1;
-                }
-            }
-            if (cleared > 0) {
-                const lineScore = [0, 100, 300, 500, 800];
-                score += lineScore[cleared] * level;
-                lines += cleared;
-                level = Math.floor(lines / 10) + 1;
-                dropInterval = Math.max(120, 900 - (level - 1) * 70);
-            }
-        };
-
-        const updateStats = () => {
-            scoreEl.textContent = score;
-            levelEl.textContent = level;
-            linesEl.textContent = lines;
-            nextEl.textContent = nextPiece ? nextPiece.type : "-";
-        };
-
-        const drawCell = (x, y, color) => {
-            context.fillStyle = color;
-            context.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
-            context.strokeStyle = "rgba(255, 255, 255, 0.15)";
-            context.strokeRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
-        };
-
-        const draw = () => {
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            context.fillStyle = "#05060f";
-            context.fillRect(0, 0, canvas.width, canvas.height);
-
-            board.forEach((row, y) => {
-                row.forEach((cell, x) => {
-                    if (cell) {
-                        drawCell(x, y, COLORS[cell]);
-                    }
-                });
-            });
-
-            if (currentPiece) {
-                currentPiece.shape.forEach((row, y) => {
-                    row.forEach((value, x) => {
-                        if (value) {
-                            drawCell(currentPiece.x + x, currentPiece.y + y, COLORS[currentPiece.type]);
-                        }
-                    });
-                });
-            }
-        };
-
-        const spawnPiece = () => {
-            currentPiece = nextPiece || randomPiece();
-            nextPiece = randomPiece();
-            currentPiece.x = Math.floor(COLS / 2) - Math.ceil(currentPiece.shape[0].length / 2);
-            currentPiece.y = -1;
-            if (collides(currentPiece)) {
-                running = false;
-                statusEl.textContent = "Game over! Pressione reiniciar para jogar novamente.";
-                cancelAnimationFrame(animationId);
-            }
-        };
-
-        const drop = () => {
-            if (!currentPiece) return;
-            if (!collides(currentPiece, 0, 1)) {
-                currentPiece.y += 1;
+        function finishCampaign() {
+            const premium = state.valor >= 65 && state.fecho >= 70;
+            const success = state.fecho >= 55;
+            if (premium) {
+                endGame("Closing assinado com desempenho premium: cliente satisfeito, boa execução e valor forte.", "good");
+            } else if (success) {
+                endGame("Transacção fechada com sucesso. Há pontos de melhoria, mas o mandato cumpriu objectivos.", "warn");
             } else {
-                merge();
-                clearLines();
-                spawnPiece();
+                endGame("Chegaste ao closing, mas a certeza de fecho ficou curta e o deal caiu.", "bad");
             }
-            updateStats();
-        };
+        }
 
-        const hardDrop = () => {
-            if (!currentPiece) return;
-            while (!collides(currentPiece, 0, 1)) {
-                currentPiece.y += 1;
-                score += 2;
-            }
-            drop();
-        };
+        function advancePhase() {
+            state.phaseIndex += 1;
+            state.progressoFase = 0;
+            state.semanasNaFase = 1;
+            applyEffects({ fecho: 2 });
 
-        const togglePause = () => {
-            if (!running) return;
-            paused = !paused;
-            statusEl.textContent = paused ? "Pausado." : "Jogo em andamento.";
-        };
-
-        const update = (time = 0) => {
-            if (!running) return;
-            if (!paused) {
-                const delta = time - lastDropTime;
-                if (delta > dropInterval) {
-                    drop();
-                    lastDropTime = time;
-                }
-                draw();
-            }
-            animationId = requestAnimationFrame(update);
-        };
-
-        const startGame = () => {
-            if (running) return;
-            running = true;
-            paused = false;
-            statusEl.textContent = "Jogo em andamento.";
-            spawnPiece();
-            updateStats();
-            lastDropTime = 0;
-            animationId = requestAnimationFrame(update);
-        };
-
-        const restartGame = () => {
-            score = 0;
-            lines = 0;
-            level = 1;
-            dropInterval = 900;
-            resetBoard();
-            currentPiece = null;
-            nextPiece = null;
-            running = false;
-            paused = false;
-            cancelAnimationFrame(animationId);
-            updateStats();
-            draw();
-            statusEl.textContent = "Pressione iniciar para começar.";
-            startGame();
-        };
-
-        const move = (direction) => {
-            if (!currentPiece) return;
-            if (!collides(currentPiece, direction, 0)) {
-                currentPiece.x += direction;
-            }
-        };
-
-        const rotatePiece = () => {
-            if (!currentPiece) return;
-            const rotated = rotate(currentPiece.shape);
-            if (!collides(currentPiece, 0, 0, rotated)) {
-                currentPiece.shape = rotated;
-            }
-        };
-
-        document.addEventListener("keydown", (event) => {
-            if (!running) return;
-            if (event.code === "KeyP") {
-                togglePause();
+            if (state.phaseIndex >= phases.length) {
+                finishCampaign();
                 return;
             }
-            if (paused) return;
-            switch (event.code) {
-                case "ArrowLeft":
-                    move(-1);
-                    break;
-                case "ArrowRight":
-                    move(1);
-                    break;
-                case "ArrowDown":
-                    drop();
-                    break;
-                case "ArrowUp":
-                    rotatePiece();
-                    break;
-                case "Space":
-                    event.preventDefault();
-                    hardDrop();
-                    break;
-                default:
-                    break;
+
+            const current = phases[state.phaseIndex];
+            addLog(`Fase concluída. Entraste em ${current.title}.`, "good");
+        }
+
+        function executarAcao(action) {
+            if (state.ended || state.pontosAcao <= 0) return;
+
+            state.pontosAcao -= 1;
+            state.progressoFase += action.progress;
+            applyEffects(action.effects);
+            addLog(action.log);
+
+            if (state.progressoFase >= 100) {
+                addLog("Progresso de fase atingiu 100%. Transição automática de fase.", "good");
+                advancePhase();
             }
-        });
 
-        startBtn.addEventListener("click", startGame);
-        pauseBtn.addEventListener("click", togglePause);
-        restartBtn.addEventListener("click", restartGame);
+            renderPhase();
+        }
 
-        resetBoard();
-        draw();
+        function terminarSemana() {
+            if (state.ended) return;
+
+            const atraso = state.semanasNaFase > 3;
+            if (atraso) {
+                applyEffects({ cliente: -2, compradores: -2 });
+                addLog("Processo lento na mesma fase: cliente e compradores perderam tração.", "bad");
+            } else {
+                addLog("Semana encerrada. Nova capacidade da equipa calculada para o próximo turno.", "warn");
+            }
+
+            state.semanaAtual += 1;
+            state.semanasNaFase += 1;
+
+            if (!state.ended) {
+                state.pontosAcao = calcularPontosAcao();
+            }
+
+            if (evaluateState()) return;
+            renderPhase();
+        }
+
+        function renderPhase() {
+            updateStats();
+            if (state.ended) return;
+            if (evaluateState()) return;
+
+            const current = phases[state.phaseIndex];
+            if (!current) {
+                finishCampaign();
+                return;
+            }
+
+            refs.phase.textContent = `Fase ${state.phaseIndex + 1} de ${phases.length} · ${current.id.toUpperCase()} · Progresso ${state.progressoFase}%`;
+            refs.title.textContent = current.title;
+            refs.description.textContent = `${current.description} Ações disponíveis neste turno: ${state.pontosAcao}.`;
+            refs.choices.innerHTML = "";
+
+            current.actions.forEach((action, index) => {
+                const button = document.createElement("button");
+                const progressLabel = action.progress > 0 ? ` (+${action.progress}% progresso)` : " (gestão de relação)";
+                button.textContent = `${index + 1}. ${action.text}${progressLabel}`;
+                button.disabled = state.pontosAcao <= 0;
+                button.addEventListener("click", () => executarAcao(action));
+                refs.choices.appendChild(button);
+            });
+
+            const endWeekButton = document.createElement("button");
+            endWeekButton.textContent = "Terminar Semana";
+            endWeekButton.className = "secondary";
+            endWeekButton.addEventListener("click", terminarSemana);
+            refs.choices.appendChild(endWeekButton);
+        }
+
+        function restart() {
+            Object.assign(state, {
+                phaseIndex: 0,
+                cliente: 70,
+                equipa: 65,
+                compradores: 55,
+                valor: 55,
+                fecho: 35,
+                semanaAtual: 1,
+                semanasTotais: 34,
+                pontosAcao: 3,
+                progressoFase: 0,
+                semanasNaFase: 1,
+                ended: false
+            });
+
+            state.pontosAcao = calcularPontosAcao();
+            refs.log.innerHTML = "";
+            addLog("Novo mandato iniciado. Estrutura por semanas activa.", "warn");
+            renderPhase();
+        }
+
+        refs.restart.addEventListener("click", restart);
+        refs.next.addEventListener("click", terminarSemana);
+        restart();
     </script>
+
 </body>
 </html>
