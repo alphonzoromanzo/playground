@@ -2116,7 +2116,7 @@
                 narrative = "You closed the deal, but endless document revisions and team exhaustion consumed the entire fee. The firm lost money (Negative Net Margin).";
             } else if (hiddenFlawsHit && ev < expectedEV) {
                 narrative = "Your sloppy deliverables early on led to massive price chipping by the auditors. The valuation crashed, and the client walked away.";
-            } else if (tone === "good" && !hiddenFlawsHit && financials.netMargin > 0.3) {
+            } else if (tone === "good" && !hiddenFlawsHit && adjustedNetMargin > 0.3) {
                 narrative = "Premium execution. You managed expectations, kept the team efficient, and secured a highly profitable margin.";
             } else if (tone === "good") {
                 narrative = "The deal closed, but margin discipline and stakeholder management left room for improvement.";
