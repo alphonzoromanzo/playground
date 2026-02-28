@@ -586,6 +586,7 @@
                     <span class="label">Prob. Closing</span>
                     <strong id="s-fecho">35%</strong>
                     <span class="stat-delta" id="d-fecho"></span>
+                    <div id="closing-danger" class="small" style="margin-top:6px;color:var(--muted);"></div>
                 </div>
                 <!-- Replaces "Dias para closing" -->
                 <div class="stat">
@@ -813,6 +814,13 @@
                 desc: "Convence o fundador a vender no timing certo. Define a tese de valor e alinha expectativas. Usa os teus Pontos de Acao com sabedoria.",
                 actions: [
                     {
+                        text: "Negotiate Initial EV Expectation Anchor",
+                        hint: "Obrigatorio: define com o cliente a expectativa inicial de valorizacao (M€) antes de executar o resto do pitch.",
+                        type: "set_expectation_anchor",
+                        effects: { cliente: 1, progressoFase: 20 },
+                        log: "Expectativa inicial de EV negociada com o cliente."
+                    },
+                    {
                         text: "Develop Go-to-Market Narrative",
                         hint: "Estrutura a tese comercial para o cliente e reforca ligeiramente a confianca no advisor.",
                         effects: { cliente: 4, fecho: 1, progressoFase: 14 },
@@ -987,6 +995,12 @@
                 ]
             },
             {
+                id: "BINDING OFFERS",
+                title: "Fase de exclusividade e Binding Offers",
+                desc: "Fase intermedia avancada: escolhe um unico bidder para exclusividade. O mercado fecha e o risco de execucao concentra-se num so comprador.",
+                actions: []
+            },
+            {
                 id: "DUE DILIGENCE",
                 title: "Due diligence e gestao do data room",
                 desc: "Pedidos criticos de clientes-chave, contencioso laboral e compliance fiscal. A DD define a confianca final antes do binding.",
@@ -1012,16 +1026,24 @@
                 ]
             },
             {
-                id: "BINDING OFFERS",
-                title: "Fase de exclusividade e Binding Offers",
-                desc: "Fase intermedia avancada: escolhe um unico bidder para exclusividade. O mercado fecha e o risco de execucao concentra-se num so comprador.",
-                actions: []
-            },
-            {
                 id: "SPA",
-                title: "Negociacao do SPA e condicoes precedentes",
+                title: "Negociação do SPA",
                 desc: "Pontos quentes: cap basket, indemnities, MAC e earn-out metrics. Cada cedencia tem implicacoes patrimoniais directas.",
                 actions: [
+                    {
+                        text: "Negotiate aggressive Escrow/Caps",
+                        hint: "1 PA: protege o cliente no pos-closing, mas reduz interesse do bidder exclusivo e baixa probabilidade de fecho.",
+                        type: "spa_aggressive_escrow",
+                        effects: { cliente: 4, progressoFase: 14 },
+                        log: "Escrow/Caps agressivos exigidos ao comprador exclusivo; risco de fecho agravado."
+                    },
+                    {
+                        text: "Concede on Warranties to secure the deal",
+                        hint: "1 PA: sobe imediatamente a probabilidade de fecho em +15%, mas activa risco de responsabilidade legal.",
+                        type: "spa_concede_warranties",
+                        effects: { cliente: 2, progressoFase: 12 },
+                        log: "Concessao em warranties aceite para proteger o timeline de assinatura."
+                    },
                     {
                         text: "Negociar clausulas criticas do SPA com advisors",
                         hint: "Avanca nas condicoes contratuais mais complexas. Resultado directo no valor EUR.",
@@ -1163,11 +1185,41 @@
             btnReviewImprove:   document.getElementById("btn-review-improve"),
             btnReviewRedo:      document.getElementById("btn-review-redo"),
             gameLayout:         document.getElementById("game-layout"),
-            postmortemNarrative:document.getElementById("postmortem-narrative")
+            postmortemNarrative:document.getElementById("postmortem-narrative"),
+            closingDanger:      document.getElementById("closing-danger")
         };
 
         // ---- HELPERS ----
         function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+        function getPhaseIndexById(id) {
+            for (var i = 0; i < PHASES.length; i++) {
+                if (PHASES[i].id === id) return i;
+            }
+            return -1;
+        }
+
+        function getExclusiveBidder() {
+            if (!state.bidderExclusivo || !state.bidders || state.bidders.length === 0) return null;
+            for (var i = 0; i < state.bidders.length; i++) {
+                if (state.bidders[i].nome === state.bidderExclusivo.nome) return state.bidders[i];
+            }
+            return null;
+        }
+
+        function calculateClosingProbability() {
+            var bidder = getExclusiveBidder();
+            if (!bidder) return clamp(state.fecho || 0, 0, 100);
+            var expectation = Math.max(0.1, state.clientExpectationEV || calcularEV());
+            var offer = bidderOfferEUR(bidder);
+            var ratio = offer / expectation;
+            var probability = ratio * bidder.interesse;
+            if (bidder.tipo === "Opportunistic/PE" && state.lastMacroTone === "bad") {
+                probability -= 18;
+            }
+            probability += state.spaProbabilityModifier || 0;
+            return clamp(Math.round(probability), 0, 100);
+        }
 
         // Calculate Action Points from team strength
         function calcPA(teamMorale) {
@@ -1200,7 +1252,7 @@
         var BIDDER_FX_KEYS = {
             interesseBidders:             "all",
             interesseBiddersIndustrial:   "Industrial",
-            interesseBiddersPE:           "Private Equity"
+            interesseBiddersPE:           "Opportunistic/PE"
         };
 
         // Generate 3–5 bidders when entering the BUYERS phase
@@ -1216,7 +1268,7 @@
             for (var i = 0; i < numPE; i++) {
                 bidders.push({
                     nome: shuffPE[i],
-                    tipo: "Private Equity",
+                    tipo: "Opportunistic/PE",
                     interesse: clamp(50 + Math.floor(Math.random() * 25), 45, 80),
                     multiploProposto: parseFloat((state.multiplo - 0.5 - Math.random() * 0.5).toFixed(1)),
                     dropRate: 0.8
@@ -1316,11 +1368,12 @@
                 }
             }
             if (!exclusive) return;
-            state.bidderExclusivo = exclusive.nome;
+            state.bidderExclusivo = exclusive;
             state.initialExpectedValue = bidderOfferEUR(exclusive);
             exclusive.shortlisted = true;
             state.bidders = [exclusive];
-            addLog("ALERTA: Mercado fechado em exclusividade com " + exclusive.nome + ". Todo o risco de execucao passa a depender de um unico buyer.", "bad");
+            state.fecho = calculateClosingProbability();
+            addLog("ALERTA: Mercado fechado em exclusividade com " + exclusive.nome + ". Probabilidade dinamica de fecho recalculada para " + state.fecho + "%.", "bad");
         }
 
         function applyPreemptiveExclusivity(outcome) {
@@ -1332,7 +1385,7 @@
 
             if (outcome === "success") {
                 selectExclusiveBidder(topBidder.nome);
-                state.phaseIndex = 5; // Jump directly to Due Diligence
+                state.phaseIndex = getPhaseIndexById("DUE DILIGENCE"); // Jump directly to Due Diligence
                 state.skipBindingOffers = true;
                 state.progressoFase = 0;
                 state.semanasNaFase = 0;
@@ -1353,6 +1406,9 @@
 
         function getPhaseActions(phase) {
             var actions = phase.actions.slice();
+            if (phase.id === "PITCH" && !state.expectationAnchorSet) {
+                actions = actions.filter(function(act) { return act.type === "set_expectation_anchor"; });
+            }
             if (phase.id === "TEASER / IM" && state.hasVDD) {
                 actions = actions.filter(function(act) { return act.type !== "vdd_decision"; });
             }
@@ -1684,7 +1740,7 @@
             for (var i = 0; i < state.bidders.length; i++) {
                 var b      = state.bidders[i];
                 var offer  = parseFloat((state.ebitda * b.multiploProposto).toFixed(1));
-                var isPE   = b.tipo === "Private Equity";
+                var isPE   = b.tipo === "Opportunistic/PE";
                 var bgCol  = isPE ? "rgba(134,215,255,0.12)" : "rgba(255,201,112,0.12)";
                 var tcCol  = isPE ? "var(--accent)" : "var(--warn)";
                 var iColor = b.interesse >= 60 ? "var(--good)" : b.interesse >= 35 ? "var(--warn)" : "var(--bad)";
@@ -1694,7 +1750,7 @@
                         '<div style="display:flex;gap:5px;align-items:center;">' +
                             '<span class="bidder-badge" style="background:' + bgCol + ';color:' + tcCol + ';">' + b.tipo + '</span>' +
                             (b.shortlisted ? '<span class="bidder-badge shortlist">Shortlist</span>' : '') +
-                            (state.bidderExclusivo === b.nome ? '<span class="bidder-badge" style="background:rgba(255,123,145,0.16);color:var(--bad);">Exclusivo</span>' : '') +
+                            (state.bidderExclusivo && state.bidderExclusivo.nome === b.nome ? '<span class="bidder-badge" style="background:rgba(255,123,145,0.16);color:var(--bad);">Exclusivo</span>' : '') +
                         '</div>' +
                     '</div>' +
                     '<div style="display:flex;justify-content:space-between;margin-top:5px;font-size:0.77rem;">' +
@@ -1732,7 +1788,21 @@
             R.sEbitda.textContent   = state.ebitda.toFixed(1);
             R.sMultiplo.textContent = state.multiplo.toFixed(1);
             R.sEV.textContent       = "EUR " + calcularEV().toFixed(1) + "m";
-            R.sFecho.textContent    = state.fecho + "%";
+            var liveClosing = calculateClosingProbability();
+            state.fecho = liveClosing;
+            R.sFecho.textContent    = liveClosing + "%";
+            if (R.closingDanger) {
+                if (getExclusiveBidder() && liveClosing < 30) {
+                    R.closingDanger.textContent = "⚠ Deal em perigo critico durante exclusividade (<30%).";
+                    R.closingDanger.style.color = "var(--bad)";
+                } else if (getExclusiveBidder()) {
+                    R.closingDanger.textContent = "Probabilidade dinamica em exclusividade atualizada em tempo real.";
+                    R.closingDanger.style.color = "var(--muted)";
+                } else {
+                    R.closingDanger.textContent = "Sem exclusividade formalizada.";
+                    R.closingDanger.style.color = "var(--muted)";
+                }
+            }
 
             var pnl = calculateAdvisorMargin();
             R.sFeePercentage.textContent = (state.feePercentage * 100).toFixed(2) + "%";
@@ -1939,7 +2009,8 @@
                 return true;
             }
             if (state.bidderExclusivo) {
-                if (!state.bidders || state.bidders.length === 0 || state.bidders[0].interesse <= 0) {
+                var exBidder = getExclusiveBidder();
+                if (!exBidder || exBidder.interesse <= 0) {
                     endGame("Market rejection: exclusivity collapsed after the last active bidder walked out.", "bad");
                     return true;
                 }
@@ -1954,7 +2025,7 @@
         function finishCampaign() {
             var bidder = null;
             if (state.bidderExclusivo && state.bidders && state.bidders.length > 0) {
-                bidder = state.bidders[0];
+                bidder = getExclusiveBidder();
             }
             var appliedMultiple = bidder ? bidder.multiploProposto : state.multiplo;
             var finalEV = parseFloat((state.ebitda * appliedMultiple).toFixed(1));
@@ -2008,6 +2079,8 @@
 
         function showEndScreen(msg, tone) {
             var financials = calculateAdvisorMargin();
+            var liabilityPenalty = (tone === "good" && state.liabilityRiskActive) ? (state.liabilityPenaltyEUR || 0.35) : 0;
+            var adjustedNetMargin = parseFloat((financials.netMargin - liabilityPenalty).toFixed(3));
             var ev = state.signedValue !== null && state.signedValue !== undefined ? state.signedValue : calcularEV();
             var expectedEV = state.clientExpectationEV || 0;
             var hiddenFlawsHit = state.hiddenFlaws && state.hiddenFlaws.length > 0;
@@ -2028,7 +2101,8 @@
                 { l: "Initial Expectation vs Final EV", v: expectedEV.toFixed(1) + " M€ vs " + ev.toFixed(1) + " M€", c: ev >= expectedEV ? "var(--good)" : "var(--warn)" },
                 { l: "Gross Advisor Fee", v: financials.grossFee.toFixed(3) + " M€", c: "var(--accent)" },
                 { l: "Execution Costs", v: financials.totalCosts.toFixed(3) + " M€", c: "var(--warn)" },
-                { l: "Final Net Margin", v: financials.netMargin.toFixed(3) + " M€", c: financials.netMargin >= 0 ? "var(--good)" : "var(--bad)" }
+                { l: "Final Net Margin", v: adjustedNetMargin.toFixed(3) + " M€", c: adjustedNetMargin >= 0 ? "var(--good)" : "var(--bad)" },
+                { l: "Liability Risk Cost", v: liabilityPenalty > 0 ? ("-" + liabilityPenalty.toFixed(3) + " M€") : "0.000 M€", c: liabilityPenalty > 0 ? "var(--bad)" : "var(--muted)" }
             ];
             for (var i = 0; i < items.length; i++) {
                 var box = document.createElement("div");
@@ -2038,11 +2112,11 @@
             }
 
             var narrative = "";
-            if (tone === "good" && financials.netMargin < 0) {
+            if (tone === "good" && adjustedNetMargin < 0) {
                 narrative = "You closed the deal, but endless document revisions and team exhaustion consumed the entire fee. The firm lost money (Negative Net Margin).";
             } else if (hiddenFlawsHit && ev < expectedEV) {
                 narrative = "Your sloppy deliverables early on led to massive price chipping by the auditors. The valuation crashed, and the client walked away.";
-            } else if (tone === "good" && !hiddenFlawsHit && financials.netMargin > 0.3) {
+            } else if (tone === "good" && !hiddenFlawsHit && adjustedNetMargin > 0.3) {
                 narrative = "Premium execution. You managed expectations, kept the team efficient, and secured a highly profitable margin.";
             } else if (tone === "good") {
                 narrative = "The deal closed, but margin discipline and stakeholder management left room for improvement.";
@@ -2097,7 +2171,7 @@
             var cfg = DIFF[diff];
             if (Math.random() >= cfg.eventChance) return;
             var ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
-            var labelNames = { cliente: "Cliente", teamMorale: "Equipa", interesseBidders: "Compradores", interesseBiddersIndustrial: "Industriais", interesseBiddersPE: "Private Equity", ebitda: "EBITDA", multiplo: "Multiplo", fecho: "Fecho" };
+            var labelNames = { cliente: "Cliente", teamMorale: "Equipa", interesseBidders: "Compradores", interesseBiddersIndustrial: "Industriais", interesseBiddersPE: "Opportunistic/PE", ebitda: "EBITDA", multiplo: "Multiplo", fecho: "Fecho" };
             var tagsHtml = "";
             var ekeys = Object.keys(ev.effects);
             for (var i = 0; i < ekeys.length; i++) {
@@ -2163,6 +2237,63 @@
                 }
 
                 addLog("Assinatura interrompida: fee invalido. A tentativa consumiu 1 PA.", "warn");
+                renderPhase();
+                return;
+            }
+
+            if (act.type === "set_expectation_anchor") {
+                var baseEV = calcularEV();
+                var suggested = (state.clientExpectationEV || baseEV).toFixed(1);
+                var anchorInput = window.prompt("Define a expectativa inicial do cliente (M€).", suggested);
+                var anchor = parseFloat(anchorInput);
+                if (isNaN(anchor) || anchor <= 0) {
+                    addLog("Anchor de expectativa invalido. A acao foi consumida e o cliente ficou confuso.", "bad");
+                    state.cliente = clamp(state.cliente - 6, 0, 100);
+                    updateStats({ cliente: -6 });
+                    renderPhase();
+                    return;
+                }
+                state.clientExpectationEV = parseFloat(anchor.toFixed(1));
+                state.expectationAnchorSet = true;
+                var trustDrop = 0;
+                var shortTermHappy = 0;
+                if (anchor > baseEV * 1.3) {
+                    trustDrop = -16;
+                    shortTermHappy = 5;
+                    state.cliente = clamp(state.cliente + trustDrop + shortTermHappy, 0, 100);
+                    addLog("Anchor agressivo (>30% acima do EV actual): cliente feliz no imediato, mas a confianca estrutural caiu fortemente.", "warn");
+                } else {
+                    state.cliente = clamp(state.cliente + 4, 0, 100);
+                    addLog("Expectativa inicial de EV ancorada em " + state.clientExpectationEV.toFixed(1) + " M€ com realismo.", "good");
+                }
+                state.progressoFase = clamp(state.progressoFase + 20, 0, 100);
+                updateStats({ cliente: trustDrop + shortTermHappy + (trustDrop === 0 ? 4 : 0), progressoFase: 20 });
+                renderPhase();
+                return;
+            }
+
+            if (act.type === "spa_aggressive_escrow") {
+                var exBidder = getExclusiveBidder();
+                if (exBidder) exBidder.interesse = clamp(exBidder.interesse - 10, 0, 100);
+                state.spaProbabilityModifier = (state.spaProbabilityModifier || 0) - 8;
+                state.postClosingProtection = true;
+                var escrowResult = applyEffects(act.effects, false);
+                updateStats(escrowResult.deltas);
+                addLog("Escrow/Caps agressivos reforcaram proteccao pos-closing, mas reduziram apetite do comprador exclusivo.", "warn");
+                maybeGenerateDeliverable(previousProgress, state.progressoFase);
+                if (!state.currentDeliverable && state.progressoFase >= getPhaseProgressTarget()) { advancePhase(); return; }
+                renderPhase();
+                return;
+            }
+
+            if (act.type === "spa_concede_warranties") {
+                state.spaProbabilityModifier = (state.spaProbabilityModifier || 0) + 15;
+                state.liabilityRiskActive = true;
+                var warResult = applyEffects(act.effects, false);
+                updateStats(warResult.deltas);
+                addLog("Concessao em warranties aumentou a probabilidade de fecho em +15%, mas activou Liability Risk.", "bad");
+                maybeGenerateDeliverable(previousProgress, state.progressoFase);
+                if (!state.currentDeliverable && state.progressoFase >= getPhaseProgressTarget()) { advancePhase(); return; }
                 renderPhase();
                 return;
             }
@@ -2251,7 +2382,7 @@
             }
 
             if (state.skipBindingOffers && PHASES[state.phaseIndex].id === "BINDING OFFERS") {
-                addLog("Binding Offers contornada pela exclusividade pre-emptiva. Processo segue para SPA.", "warn");
+                addLog("Binding Offers contornada pela exclusividade pre-emptiva. Processo segue para Due Diligence.", "warn");
                 state.phaseIndex++;
                 if (state.phaseIndex >= PHASES.length) {
                     finishCampaign();
@@ -2447,6 +2578,10 @@
                 generatedDeliverables: {},
                 ddMassacreResolved: false,
                 clientExpectationEV: parseFloat(((cfg.start.ebitda * cfg.start.multiplo) + 4).toFixed(1)),
+                expectationAnchorSet: false,
+                liabilityRiskActive: false,
+                liabilityPenaltyEUR: 0.35,
+                spaProbabilityModifier: 0,
                 marketNews:    [],
                 lastMacroTone: null,
                 lastMacroWeek: 0,
