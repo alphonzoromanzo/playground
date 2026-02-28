@@ -191,6 +191,26 @@
             line-height: 1.35;
         }
         .log-entry:last-child { border-bottom: none; }
+        .market-news {
+            margin-top: 12px;
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(6, 10, 24, 0.7);
+        }
+        .market-news h3 {
+            margin: 0 0 6px;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--warn);
+        }
+        .market-news-item {
+            font-size: 0.83rem;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .market-news-item:last-child { border-bottom: none; }
         .good { color: var(--good); }
         .warn { color: var(--warn); }
         .bad  { color: var(--bad);  }
@@ -534,6 +554,10 @@
             <p id="phase-desc"></p>
             <div id="event-area"></div>
             <div class="choices" id="choices"></div>
+            <div class="market-news" id="market-news" aria-live="polite">
+                <h3>Market News</h3>
+                <div id="market-news-items" class="small" data-empty="1">Sem noticias macroeconomicas esta semana.</div>
+            </div>
             <div class="log" id="log" aria-live="polite"></div>
         </section>
     </main>
@@ -622,6 +646,14 @@
             }
         ];
 
+        var eventosMacro = [
+            { title: "ECB sobe taxas directoras", desc: "Custos de financiamento sobem e os compradores ajustam valoracoes.", effects: { multiplo: -0.5 } },
+            { title: "Crise na supply chain europeia", desc: "Disrupcoes operacionais pressionam margens no curto prazo.", effects: { ebitda: -0.4 } },
+            { title: "Programa fiscal pro-investimento", desc: "Incentivos aumentam o apetite por transaccoes industriais.", effects: { multiplo: 0.4, fecho: 3 } },
+            { title: "Queda abrupta do preco da energia", desc: "Alivio de custos melhora perspectivas operacionais do target.", effects: { ebitda: 0.3 } },
+            { title: "Instabilidade geopolitica", desc: "Risco macro eleva incerteza e torna compradores mais prudentes.", effects: { multiplo: -0.3, fecho: -4 } }
+        ];
+
         // ---- PHASES — Repeatable Actions with progressoFase ----
         // Each action costs 1 PA. progressoFase drives phase completion (0→100).
         // BUYERS phase (index 3) generates state.bidders; later phases route compradores
@@ -635,7 +667,7 @@
                     {
                         text: "Apresentar tese de venda e timing de mercado",
                         hint: "Argumentacao centrada na janela de oportunidade. Avanca o pitch significativamente.",
-                        effects: { cliente: 5, equipa: -2, multiplo: 0.3, progressoFase: 25 },
+                        effects: { success: { prob: 0.7, effects: { cliente: 5, equipa: -2, multiplo: 0.3, progressoFase: 25 } }, failure: { prob: 0.3, effects: { cliente: -3, equipa: -1, progressoFase: 10 } } },
                         log: "A tese de venda foi bem recebida — momentum positivo no processo."
                     },
                     {
@@ -660,7 +692,7 @@
                     {
                         text: "Redigir e finalizar Information Memorandum",
                         hint: "Producao do documento principal. Trabalho intensivo para a equipa.",
-                        effects: { fecho: 3, equipa: -5, ebitda: 0.3, progressoFase: 20 },
+                        effects: { success: { prob: 0.75, effects: { fecho: 3, equipa: -5, ebitda: 0.3, progressoFase: 20 } }, failure: { prob: 0.25, effects: { equipa: -6, fecho: -1, progressoFase: 8 } } },
                         log: "O IM esta a tomar forma — documentacao solida que transmite credibilidade ao mercado."
                     },
                     {
@@ -685,7 +717,7 @@
                     {
                         text: "Coaching intensivo do management para a apresentacao",
                         hint: "Preparacao aprofundada que maximiza o impacto junto dos compradores.",
-                        effects: { fecho: 5, ebitda: 0.2, equipa: -5, progressoFase: 25 },
+                        effects: { success: { prob: 0.68, effects: { fecho: 5, ebitda: 0.2, equipa: -5, progressoFase: 25 } }, failure: { prob: 0.32, effects: { fecho: -2, equipa: -6, progressoFase: 8 } } },
                         log: "O management apresentou com clareza e confianca — buyers muito positivos."
                     },
                     {
@@ -869,6 +901,7 @@
             phaseDesc:          document.getElementById("phase-desc"),
             choices:            document.getElementById("choices"),
             eventArea:          document.getElementById("event-area"),
+            marketNewsItems:    document.getElementById("market-news-items"),
             log:                document.getElementById("log"),
             restart:            document.getElementById("btn-restart"),
             endWeekBtn:         document.getElementById("btn-end-week"),
@@ -1002,6 +1035,30 @@
             el.innerHTML = html;
         }
 
+        function fmtEffectValue(key, value) {
+            if (key === "ebitda" || key === "multiplo") return (value > 0 ? "+" : "") + value.toFixed(1);
+            return (value > 0 ? "+" : "") + value;
+        }
+
+        function pushMarketNews(msg, tone) {
+            if (!R.marketNewsItems) return;
+            if (R.marketNewsItems.getAttribute("data-empty") === "1") {
+                R.marketNewsItems.innerHTML = "";
+            }
+            var row = document.createElement("div");
+            row.className = "market-news-item" + (tone ? " " + tone : "");
+            row.textContent = msg;
+            R.marketNewsItems.insertBefore(row, R.marketNewsItems.firstChild);
+            R.marketNewsItems.setAttribute("data-empty", "0");
+        }
+
+        function clearMarketNews() {
+            if (!R.marketNewsItems) return;
+            R.marketNewsItems.className = "small";
+            R.marketNewsItems.textContent = "Sem noticias macroeconomicas esta semana.";
+            R.marketNewsItems.setAttribute("data-empty", "1");
+        }
+
         function addLog(msg, tone) {
             var div = document.createElement("div");
             div.className = "log-entry" + (tone ? " " + tone : "");
@@ -1067,12 +1124,22 @@
         var FINANCIAL_KEYS = { ebitda: true, multiplo: true, progressoFase: true };
 
         function applyEffects(rawFx, skipScale) {
+            var selectedFx = rawFx;
+            var outcome = null;
+            if (rawFx && rawFx.success && rawFx.failure) {
+                var roll = Math.random();
+                var successProb = rawFx.success.prob || 0;
+                var success = roll < successProb;
+                outcome = { roll: roll, type: success ? "success" : "failure", successProb: successProb };
+                selectedFx = success ? rawFx.success.effects : rawFx.failure.effects;
+            }
+
             var cfg = DIFF[diff];
             var fx = {};
-            var keys = Object.keys(rawFx);
+            var keys = Object.keys(selectedFx || {});
             for (var i = 0; i < keys.length; i++) {
                 var k = keys[i];
-                var v = rawFx[k];
+                var v = selectedFx[k];
                 if (!skipScale && v < 0 && !FINANCIAL_KEYS[k]) {
                     fx[k] = Math.round(v * cfg.negScale);
                 } else {
@@ -1107,7 +1174,8 @@
                 ebitda:       parseFloat((state.ebitda   - before.ebitda).toFixed(2)),
                 multiplo:     parseFloat((state.multiplo - before.multiplo).toFixed(2)),
                 fecho:        state.fecho        - before.fecho,
-                progressoFase: state.progressoFase - before.progressoFase
+                progressoFase: state.progressoFase - before.progressoFase,
+                outcome: outcome
             };
         }
 
@@ -1216,6 +1284,19 @@
             R.endOv.className = "overlay";
         }
 
+        function maybeMacroEvent() {
+            if (state.ended || Math.random() >= 0.25) return;
+            var ev = eventosMacro[Math.floor(Math.random() * eventosMacro.length)];
+            var deltas = applyEffects(ev.effects, true);
+            updateStats(deltas);
+            var keys = Object.keys(ev.effects);
+            var effectList = [];
+            for (var i = 0; i < keys.length; i++) effectList.push(keys[i] + " " + fmtEffectValue(keys[i], ev.effects[keys[i]]));
+            var mood = ((ev.effects.ebitda || 0) + (ev.effects.multiplo || 0) + (ev.effects.fecho || 0)) >= 0 ? "good" : "bad";
+            pushMarketNews(ev.title + ": " + effectList.join(", "), mood);
+            addLog("Macro [S" + state.semanaAtual + "]: " + ev.title + " — " + ev.desc, mood);
+        }
+
         // ---- RANDOM EVENT (non-blocking) ----
         function maybeEvent() {
             if (state.ended) return;
@@ -1252,6 +1333,11 @@
             state.pontosAcao--;
             var deltas = applyEffects(act.effects, false);
             gameHistory.push({ type: "choice", phase: PHASES[state.phaseIndex].id, text: act.text });
+            if (deltas.outcome) {
+                var rolledText = Math.round(deltas.outcome.roll * 1000) / 10;
+                var chanceText = Math.round(deltas.outcome.successProb * 100);
+                addLog("[S" + state.semanaAtual + "] RNG acao: " + (deltas.outcome.type === "success" ? "SUCESSO" : "FALHA") + " (" + rolledText + "% vs sucesso " + chanceText + "%).", deltas.outcome.type === "success" ? "good" : "bad");
+            }
             addLog("[S" + state.semanaAtual + "] " + act.log);
             updateStats(deltas);
 
@@ -1329,6 +1415,7 @@
 
             addLog("Semana " + state.semanaAtual + " iniciada. " + state.pontosAcao + " pontos de acao disponiveis.", "warn");
 
+            maybeMacroEvent();
             maybeEvent();
             if (!state.ended) {
                 updateStats();
@@ -1359,14 +1446,18 @@
             for (var i = 0; i < ph.actions.length; i++) {
                 (function(act, idx) {
                     var btn = document.createElement("button");
-                    var progressLabel = act.effects.progressoFase
-                        ? " \u00B7 +" + act.effects.progressoFase + "% fase"
+                    var baseEffects = act.effects && act.effects.success ? act.effects.success.effects : act.effects;
+                    var progressLabel = baseEffects && baseEffects.progressoFase
+                        ? " \u00B7 +" + baseEffects.progressoFase + "% fase"
                         : "";
+                    var successLabel = (act.effects && act.effects.success)
+                        ? " \u00B7 Sucesso " + Math.round((act.effects.success.prob || 0) * 100) + "%"
+                        : " \u00B7 Sucesso 100%";
                     btn.innerHTML =
                         "<strong>" + (idx + 1) + ". " + act.text + "</strong>" +
                         '<span class="choice-hint">' + act.hint + '</span>' +
                         '<span class="choice-hint" style="color:var(--accent);font-size:0.72rem;margin-top:3px;">' +
-                        "\u25B8 1 Ponto de Acao" + progressLabel + "</span>";
+                        "\u25B8 1 Ponto de Acao" + progressLabel + successLabel + "</span>";
                     btn.disabled = noPA;
                     btn.addEventListener("click", function() { doAction(act); });
                     R.choices.appendChild(btn);
@@ -1413,6 +1504,7 @@
             gameHistory = [];
             R.log.innerHTML       = "";
             R.eventArea.innerHTML = "";
+            clearMarketNews();
             R.startOv.className   = "overlay hidden";
             R.badge.textContent   = cfg.label;
             R.badge.className     = "diff-badge " + cfg.badgeClass;
